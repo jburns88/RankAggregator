@@ -1,0 +1,5 @@
+upperBound <-
+function(ccr, umat){
+
+  return(sum(umat * outer(ccr, ccr, FUN = `<`)))
+}

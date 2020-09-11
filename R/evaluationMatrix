@@ -1,0 +1,42 @@
+evaluationMatrix <-
+function(x) {
+
+  ## checks
+  #####
+  ## argument checks
+  if(! is.data.frame(x)){
+    stop("argument: x must be a data.frame") }
+  ## data checks
+  if(! "Reviewer" %in% colnames(x)){
+    stop("x must contain column named Reviewer") }
+  if(! "Item" %in% colnames(x)){
+    stop("x must contain column named Item") }
+  if(! "Ranking" %in% colnames(x)){
+    stop("x must contain column named Ranking") }
+  if(! is.character(x$Reviewer)){
+    stop("x$Reviewer must be a character vector") }
+  if(! is.character(x$Item)){
+    stop("x$Item must be a character vector") }
+  if(! is.numeric(x$Ranking)){
+    stop("x$Ranking must be a numeric vector") }
+  #####
+
+  items <- unique(x$Item)
+
+  by_reviewer <- reshape(as.data.frame(x),
+                         idvar = "Reviewer",
+                         v.names = "Ranking",
+                         timevar = "Item",
+                         direction = "wide")
+
+  names(by_reviewer) <- gsub("Ranking.", "", names(by_reviewer))
+
+  rmat <- outer(items, items,
+                Vectorize(FUN = function (m, n, by_reviewer) sum(by_reviewer[,m] > by_reviewer[,n], na.rm = TRUE),
+                          vectorize.args = c("m", "n")),
+                by_reviewer)
+
+  colnames(rmat) <- rownames(rmat) <- items
+
+  return(rmat)
+}

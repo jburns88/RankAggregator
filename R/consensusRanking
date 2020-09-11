@@ -1,0 +1,160 @@
+consensusRanking <-
+function(rmat){
+
+  ## checks
+  #####
+  ## argument check
+  if(! is.matrix(rmat)){
+    stop("argument: rmat must be a matrix") }
+  #####
+
+  nt <- nrow(rmat)
+
+  final.rank <- rep(NA, nt)
+
+  is.dominating <- is.dominated <- rep(FALSE, nt)
+
+  dodo <- rep(FALSE, nt)
+
+  nododo <- ! dodo
+
+  for(i in 1:nt){
+
+    if(any(nododo)){
+
+      for(j in which(nododo)){
+
+        if(! i %in% final.rank){
+
+          is.dominating[j] <- all(rmat[nododo,j] >= rmat[j,nododo])
+
+          if(is.dominating[j]){ final.rank[j] <- i  }
+        }
+
+        if(! (nt - i + 1) %in% final.rank){
+
+          is.dominated[j] <- all(rmat[nododo,j] <= rmat[j,nododo])
+
+          if(is.dominated[j]){ final.rank[j] <- nt - i + 1  }
+        }
+      }
+
+      dodo <- (is.dominating) | (is.dominated)
+
+      nododo <- ! dodo
+    }
+  }
+
+  nu <- sum(nododo)
+
+  if(nu > 0){
+
+    umat <- rmat[nododo,nododo]
+
+    curnode <- list(partial.ranking = rep(NA, nu))
+
+    curnode$included <- ! is.na(curnode$partial.ranking)
+
+    curnode$prl <- sum(curnode$included)
+
+    curnode$lb <- lowerBound(umat, partial.ranking = curnode$partial.ranking)
+
+    curnode$complete.ranking <- extendRanking(umat, node = curnode)
+
+    curnode$ub <- upperBound(curnode$complete.ranking, umat)
+
+    terminated <- (curnode$lb == curnode$ub)
+
+    activenodes <- as.list(NULL)
+
+    node.explored <- vector(mode = "list", length = 1)
+
+    incumbent <- curnode
+
+    activenodes[[1]] <- curnode
+
+    i <- 1
+
+      while(! terminated){
+
+        active.lb <- unlist(lapply(activenodes, function(x){x$lb}))
+
+        active.prl <- unlist(lapply(activenodes, function(x){x$prl}))
+
+        node.bcs <- which(active.lb == min(active.lb))
+
+        if(length(node.bcs) > 1){
+
+          node.bcs <- node.bcs[active.prl[node.bcs] == max(active.prl[node.bcs])][1]
+        }
+
+        curnode <- activenodes[[node.bcs]]
+
+        if(length(activenodes) > 1){ activenodes <- activenodes[-node.bcs] }
+
+        if((length(activenodes) == 1) & i != 1){
+
+          if(length(Filter(length, node.explored)) == 0){
+
+            node.explored[[1]] <- activenodes[[1]]
+
+          } else {
+
+            terminated <- identical(node.explored[[1]], activenodes[[1]])
+
+            if(! terminated){
+
+              node.explored[[1]] <- activenodes[[1]]
+            }
+          }
+        }
+
+        newactive <- vector(mode = "list", length = sum(!curnode$included))
+
+        h1 <- 1
+
+        for(j in which(! curnode$included)){
+
+          newnode <- curnode
+
+          newnode$included[j] <- TRUE
+
+          newnode$prl <- newnode$prl + 1
+
+          newnode$partial.ranking[j] <- newnode$prl
+
+          newnode$lb <- lowerBound(umat,partial.ranking = newnode$partial.ranking)
+
+          if(newnode$lb <= incumbent$ub){
+
+            newnode$complete.ranking <- extendRanking(umat, node = newnode)
+
+            newnode$ub <- upperBound(ccr = newnode$complete.ranking, umat)
+
+            if(newnode$ub < incumbent$ub){
+
+              incumbent <- newnode
+            }
+
+            newactive[[h1]] <- newnode
+
+            h1 <- h1 + 1
+
+          }
+        }
+
+        if(length(Filter(length, newactive)) != 0){
+
+        activenodes <- Filter(function(x) x$lb <= incumbent$ub,
+                              append(activenodes, Filter(length, newactive)))
+        }
+        i <- i + 1
+
+      }
+
+    final.rank[nododo] <- sum(is.dominating) + incumbent$complete.ranking
+  }
+  consensus <- data.frame(Item = row.names(rmat), Rank = final.rank)
+
+  return(consensus)
+}

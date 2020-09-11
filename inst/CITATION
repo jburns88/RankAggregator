@@ -1,0 +1,16 @@
+citHeader("To cite RankAggregator in publications use:")
+
+citEntry(
+  entry    = "Article",
+  title    = "TBC",
+  author   = "TBC",
+  journal  = "TBC",
+  year     = "TBC",
+  volume   = "TBC",
+  number   = "TBC",
+  pages    = "TBC",
+  url      = "",
+  textVersion = paste("TBC"
+
+  )
+)
