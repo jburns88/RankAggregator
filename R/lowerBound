@@ -1,0 +1,22 @@
+lowerBound <-
+function(umat, partial.ranking){
+
+  p1 <- ! is.na(partial.ranking)
+
+  ## if both in p1
+  # output identical to original loop
+  eq.p1 <- sum(umat[p1,p1] * outer(partial.ranking[which(p1)],
+                                   partial.ranking[which(p1)],
+                                   FUN = `<`))
+
+  ## if one in p1 and one not in p1
+  # output identical to original loop
+  eq.p2 <- sum(umat[p1,!p1])
+
+  ## if both not in p1
+  # output not identical to original loop, but original loop ignored instances where umat[q,p] == umat[p,q]
+  eq.p3 <- sum(pmin(umat[!p1,!p1][upper.tri(umat[!p1,!p1])],
+                    t(umat[!p1,!p1])[upper.tri(t(umat[!p1,!p1]))]))
+
+  return(sum(eq.p1, eq.p2, eq.p3))
+}

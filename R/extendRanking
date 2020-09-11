@@ -1,0 +1,49 @@
+extendRanking <-
+function(umat, node) {
+
+  out <- node$partial.ranking
+
+  if (length(which(! node$included)) <= 1) {
+
+    out[!node$included] <- length(out)
+
+  } else {
+
+    cmat <- umat[!node$included, !node$included]
+    nt <- nrow(cmat)
+    z <- integer(nt)
+    rs <- rowSums(cmat)
+    cs <- colSums(cmat)
+    rv.rmat <- rowSums(umat)/(rowSums(umat) + colSums(umat))
+
+    for (i in 1:(nt - 1)) {
+
+      if(sum(rs[is.finite(rs)], cs[is.finite(cs)]) != 0) {
+
+        rmk <- which.min(rs / (cs + rs))
+        z[i] <- names(rmk)
+        rs <- rs - cmat[, rmk]
+        cs <- cs - cmat[rmk,]
+
+      } else {
+
+        rmk.nan <- match(colnames(cmat[is.finite(cs), is.finite(cs)]),
+                         colnames(rmat))
+        rmk <- which.min(rv.rmat[rmk.nan])
+        z[i] <- names(rmk)
+        rmk <- match(names(rmk), names(cs))
+
+      }
+
+      cs[rmk] <- -Inf
+      rs[rmk] <- Inf
+    }
+
+    z[nt] <- names(cs[which(cs != -Inf)])
+
+    out[!node$included] <- node$prl + data.frame(Item = row.names(umat),
+                                                 Rank = match(row.names(umat), z))$Rank[which(!node$included)]
+  }
+
+  return(out)
+}

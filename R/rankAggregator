@@ -1,0 +1,112 @@
+rankAggregator <-
+function(x,
+                           bootstrap,
+                           nboot = 10000,
+                           conf.int = 0.95){
+
+  ## checks
+  #####
+  ## argument checks
+  if(! is.data.frame(x)){
+    stop("argument: x must be a data.frame") }
+  if(! is.logical(bootstrap)){
+    stop("argument: bootstrap must be numeric") }
+  if(bootstrap){
+    if(! is.numeric(nboot)){
+      stop("argument: nboot must be numeric") }
+    if(! is.numeric(conf.int)){
+      stop("argument: conf.int must be numeric") }
+    if(! conf.int > 0 & conf.int < 1){
+      stop("argument: conf.int must be >0 and <1") }
+  }
+
+  ## data checks
+  if(! "Reviewer" %in% colnames(x)){
+    stop("x must contain column named Reviewer") }
+  if(! "Item" %in% colnames(x)){
+    stop("x must contain column named Item") }
+  if(! "Ranking" %in% colnames(x)){
+    stop("x must contain column named Ranking") }
+  if(! is.character(x$Reviewer)){
+    stop("x$Reviewer must be a character vector") }
+  if(! is.character(x$Item)){
+    stop("x$Item must be a character vector") }
+  if(! is.numeric(x$Ranking)){
+    stop("x$Ranking must be a numeric vector") }
+  if(any(data.frame(table(x$Reviewer, x$Ranking))$Freq > 1)){
+    warning("Not all rankings are strict, meaning some rankings contain ties") }
+  #####
+
+  ######################################
+  ## ORIGINAL FUNCTION
+  ## create evaluation matrix, run consensus ranking procedure
+  ## assign results to output table
+
+  x <- as.data.frame(x[,c("Reviewer","Item","Ranking")], stringsAsFactors = FALSE)
+
+  rmat <- evaluationMatrix(x)
+
+  conr.est <- consensusRanking(rmat)
+
+  out.tab <- conr.est ; colnames(out.tab) <- gsub("Rank", "Rank.est", colnames(out.tab))
+
+  ######################################
+  ## BOOTSTRAPPING
+  ## resample studies and re-run consensus ranking procedure nboot times
+
+  if(bootstrap){
+
+    st <- levels(factor(x$Reviewer))
+
+    nt <- length(conr.est$Item)
+
+    ns <- length(st)
+
+    conr.boot <- array(dim = c(nt, nboot))
+
+    for(k in 1:nboot){
+
+      if(k%%1000 == 0){message(paste0(k/nboot*100,"% complete"))}
+
+      stuk <- sample(st,ns,replace = TRUE)
+
+      tmp <- NULL
+
+      for(j in 1:ns){
+
+        bob <- x[x$Reviewer == stuk[j],]
+
+        bob$Reviewer <- paste0(stuk[j],j)
+
+        tmp <- rbind(tmp, bob)
+      }
+
+      rmk <- evaluationMatrix(tmp)
+
+      conr.k <- consensusRanking(rmk)
+
+      drop.boot <- (length(unique(conr.k$Item)) != nt)
+
+      if(! drop.boot){  conr.boot[,k] <- conr.k$Rank[match(conr.est$Item, conr.k$Item)] }
+
+    }
+
+    ######################################
+    ## SUMMARY TABLE
+    ## add summary statistics to output table
+
+    out.tab$Rank.cilo <- apply(conr.boot, 1, quantile, (1-conf.int)/2, na.rm=TRUE)
+    out.tab$Rank.cihi <- apply(conr.boot, 1, quantile, 1-(1-conf.int)/2, na.rm=TRUE)
+    out.tab$Rank.median <- apply(conr.boot, 1, median, na.rm=TRUE)
+    out.tab$Rank.mean <- apply(conr.boot, 1, mean, na.rm=TRUE)
+  }
+
+  print(out.tab)
+
+  if(bootstrap){
+    out.tab <- list(summaryTable = out.tab,
+                    bootstrapData = conr.boot)
+  }
+
+  invisible(out.tab)
+}
